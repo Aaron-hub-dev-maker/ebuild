@@ -181,10 +181,16 @@ class ImageBuilder:
         self._create_empty_image(output, size_mb)
 
         if _has_command("mkfs.ext4"):
-            subprocess.run(
+            result = subprocess.run(
                 ["mkfs.ext4", "-L", label, "-d", str(rootfs_dir), str(output)],
                 capture_output=True,
+                text=True,
             )
+            if result.returncode != 0:
+                # A failing mkfs.ext4 used to be swallowed: the corrupt image
+                # was left behind and `ebuild system` still reported success
+                # with exit 0. Surface the tool's own error instead.
+                raise ImageError(f"mkfs.ext4 failed: {result.stderr.strip()}")
         else:
             raise ImageError(
                 "mkfs.ext4 not found. Install e2fsprogs:\n"
